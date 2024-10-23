@@ -79,44 +79,32 @@ jobs:
         vs-version: '17.0'
         msbuild-architecture: x64
 
-    # Use VS Developer Command Prompt instead of ninja
     - name: Setup VS Developer Command Prompt
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: amd64
         sdk: '10.0.22000.0'
 
-    - name: Configure and Build with Visual Studio
-      shell: cmd
+    - name: Configure and Build
+      shell: pwsh
       run: |
-        :: Create a CMakeSettings.json file to match VS defaults
-        echo {
-        echo   "configurations": [
-        echo     {
-        echo       "name": "x64-Release",
-        echo       "generator": "Visual Studio 17 2022",
-        echo       "configurationType": "Release",
-        echo       "inheritEnvironments": [ "msvc_x64_x64" ],
-        echo       "buildRoot": "${env.GITHUB_WORKSPACE}\\out\\build\\${name}",
-        echo       "installRoot": "${{ env.INSTALL_PREFIX }}",
-        echo       "cmakeCommandArgs": "",
-        echo       "buildCommandArgs": "",
-        echo       "ctestCommandArgs": "",
-        echo       "variables": [
-        echo         {
-        echo           "name": "Qt5_DIR",
-        echo           "value": "C:/Qt/${{ env.QT_VERSION }}/msvc2019_64/lib/cmake/Qt5",
-        echo           "type": "PATH"
-        echo         }
-        echo       ]
-        echo     }
-        echo   ]
-        echo } > CMakeSettings.json
+        # Create build directory
+        mkdir build
+        cd build
         
-        :: Configure and build using VS CMake integration
-        cmake --preset x64-Release
-        cmake --build out/build/x64-Release --config Release
-        cmake --install out/build/x64-Release --config Release
+        # Configure with CMake
+        cmake .. `
+          -G "Visual Studio 17 2022" `
+          -A x64 `
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+          -DCMAKE_INSTALL_PREFIX="${{ env.INSTALL_PREFIX }}" `
+          -DQt5_DIR="C:/Qt/${{ env.QT_VERSION }}/msvc2019_64/lib/cmake/Qt5"
+        
+        # Build
+        cmake --build . --config ${{ env.BUILD_TYPE }}
+        
+        # Install
+        cmake --install . --config ${{ env.BUILD_TYPE }}
 
     - name: Package
       run: |
