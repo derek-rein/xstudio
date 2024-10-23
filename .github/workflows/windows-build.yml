@@ -1,0 +1,117 @@
+name: Windows Build
+
+on:
+  # push:
+  #   branches: [ "main" ]
+  # pull_request:
+  #   branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  QT_VERSION: 5.15.2
+  VSVERSION: '2022'
+  BUILD_TYPE: Release
+  INSTALL_PREFIX: D:/a/_temp/install
+  PYTHON_VERSION: '3.10'  # Explicitly specify Python 3.10
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Enable long paths
+      shell: powershell
+      run: |
+        New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+        -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '${{ env.PYTHON_VERSION }}'
+        cache: 'pip'  # Enable pip caching
+
+    - name: Verify Python version
+      run: |
+        python --version
+        if (-not (python --version).Contains("3.10")) {
+          echo "::error::Wrong Python version detected"
+          exit 1
+        }
+      shell: pwsh
+
+    - name: Install aqtinstall
+      run: |
+        python -m pip install --upgrade pip
+        pip install aqtinstall==3.1.*  # Pin to a specific version for stability
+
+    - name: Install Qt
+      run: |
+        aqt install-qt `
+          windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 `
+          --outputdir C:\Qt `
+          --modules qtcharts qtwebengine
+        
+        aqt install-tool `
+          windows desktop tools_qtcreator `
+          --outputdir C:\Qt
+        
+        aqt install-tool `
+          windows desktop tools_qtcreator_debug `
+          --outputdir C:\Qt
+        
+        aqt install-tool `
+          windows desktop tools_qtcreator_kits_and_debuggers `
+          --outputdir C:\Qt
+      shell: pwsh
+
+    - name: Add Qt to PATH
+      run: echo "C:\Qt\${{ env.QT_VERSION }}\msvc2019_64\bin" >> $GITHUB_PATH
+      shell: bash
+
+    - name: Setup Ninja
+      uses: seanmiddleditch/gha-setup-ninja@v4
+
+    - name: Setup VS Dev Environment
+      uses: seanmiddleditch/gha-setup-vsdevenv@master
+      with:
+        vsversion: ${{ env.VSVERSION }}
+
+    - name: Configure CMake
+      run: |
+        cmake -B ${{github.workspace}}/build `
+          -GNinja `
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} `
+          -DCMAKE_INSTALL_PREFIX="${{ env.INSTALL_PREFIX }}" `
+          -DQt5_DIR="C:/Qt/${{ env.QT_VERSION }}/msvc2019_64/lib/cmake/Qt5"
+      shell: pwsh
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      
+    - name: Install
+      run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Package
+      run: |
+        # Create dist directory
+        mkdir dist
+        
+        # Copy installation to dist
+        cp -r "${{ env.INSTALL_PREFIX }}/*" dist/
+        
+        # Copy Qt dependencies
+        windeployqt --release --dir dist/bin dist/bin/xstudio.exe
+      shell: bash
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: xstudio-windows
+        path: dist/
+        compression-level: 9  # Maximum compression to reduce artifact size
