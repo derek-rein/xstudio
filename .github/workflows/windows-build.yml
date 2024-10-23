@@ -34,7 +34,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '${{ env.PYTHON_VERSION }}'
-        # Removed pip caching as we don't have requirements.txt
 
     - name: Verify Python version
       run: |
@@ -82,6 +81,29 @@ jobs:
       with:
         vsversion: ${{ env.VSVERSION }}
 
+    - name: Update vcpkg.json versions
+      run: |
+        $vcpkgJson = Get-Content vcpkg.json | ConvertFrom-Json
+        
+        # Update versions to match available ones
+        foreach ($dep in $vcpkgJson.dependencies) {
+          if ($dep.name -eq "opencolorio") {
+            $dep.version = "2.1.2"
+          }
+          elseif ($dep.name -eq "openimageio") {
+            $dep.version = "2.4.11.1"
+          }
+          elseif ($dep.name -eq "python3") {
+            $dep.version = "3.10.7#6"
+          }
+        }
+        
+        $vcpkgJson | ConvertTo-Json -Depth 10 | Set-Content vcpkg.json
+        
+        # Display updated content
+        Get-Content vcpkg.json
+      shell: pwsh
+
     - name: Configure CMake
       run: |
         cmake -B ${{github.workspace}}/build `
@@ -114,4 +136,4 @@ jobs:
       with:
         name: xstudio-windows
         path: dist/
-        compression-level: 9  # Maximum compression to reduce artifact size
+        compression-level: 9
