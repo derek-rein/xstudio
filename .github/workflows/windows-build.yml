@@ -12,7 +12,7 @@ env:
   VSVERSION: '2022'
   BUILD_TYPE: Release
   INSTALL_PREFIX: D:/a/_temp/install
-  PYTHON_VERSION: '3.10'  # Explicitly specify Python 3.10
+  PYTHON_VERSION: '3.10'
 
 jobs:
   build:
@@ -34,7 +34,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '${{ env.PYTHON_VERSION }}'
-        cache: 'pip'  # Enable pip caching
+        # Removed pip caching as we don't have requirements.txt
 
     - name: Verify Python version
       run: |
@@ -48,7 +48,7 @@ jobs:
     - name: Install aqtinstall
       run: |
         python -m pip install --upgrade pip
-        pip install aqtinstall==3.1.*  # Pin to a specific version for stability
+        pip install aqtinstall==3.1.*
 
     - name: Install Qt
       run: |
