@@ -1,5 +1,4 @@
 name: Windows Build
-
 on:
   # push:
   #   branches: [ "main" ]
@@ -12,7 +11,7 @@ env:
   BUILD_TYPE: Release
   INSTALL_PREFIX: D:/a/_temp/install
   PYTHON_VERSION: '3.10'
-  VCPKG_ROOT: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\vcpkg"
+  VCPKG_ROOT: D:/a/xstudio/xstudio/build/vcpkg
 
 jobs:
   build:
@@ -105,23 +104,30 @@ jobs:
         arch: amd64
         sdk: '10.0.22000.0'
 
+    - name: Setup vcpkg
+      run: |
+        mkdir build
+        cd build
+        git clone https://github.com/Microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
+      shell: pwsh
+
     - name: Configure and Build
       shell: pwsh
       run: |
-        # Create build directory
-        mkdir build
         cd build
         
         # Configure with CMake
-        cmake .. `
+        cmake `
           -G "Visual Studio 17 2022" `
           -A x64 `
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+          -DCMAKE_BUILD_TYPE="${{ env.BUILD_TYPE }}" `
           -DCMAKE_INSTALL_PREFIX="${{ env.INSTALL_PREFIX }}" `
-          -DQt5_DIR="C:/Qt/${{ env.QT_VERSION }}/msvc2019_64/lib/cmake/Qt5"
-          -DPYTHON_EXECUTABLE="${{ env.VCPKG_PYTHON }}" `
+          -DQt5_DIR="C:/Qt/${{ env.QT_VERSION }}/msvc2019_64/lib/cmake/Qt5" `
+          -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}/python.exe" `
           -DVCPKG_TARGET_TRIPLET=x64-windows `
-          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
+          ..
         
         # Build
         cmake --build . --config ${{ env.BUILD_TYPE }}
