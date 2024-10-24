@@ -30,18 +30,38 @@ jobs:
         New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
         -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
 
+    - name: Cache vcpkg
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ env.VCPKG_ROOT }}
+          !${{ env.VCPKG_ROOT }}/buildtrees
+          !${{ env.VCPKG_ROOT }}/packages
+          !${{ env.VCPKG_ROOT }}/downloads
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-
+
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '${{ env.PYTHON_VERSION }}'
 
-    - name: Verify Python version
+    - name: Configure vcpkg environment
+      run: |
+        echo "VCPKG_DEFAULT_TRIPLET=x64-windows" >> $GITHUB_ENV
+        echo "VCPKG_FORCE_SYSTEM_BINARIES=1" >> $GITHUB_ENV
+        echo "PYTHON_HOME=${{ env.pythonLocation }}" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Verify Python version and set vcpkg Python path
       run: |
         python --version
         if (-not (python --version).Contains("3.10")) {
           echo "::error::Wrong Python version detected"
           exit 1
         }
+        echo "VCPKG_PYTHON=${{ env.pythonLocation }}\python.exe" >> $env:GITHUB_ENV
       shell: pwsh
 
     - name: Install aqtinstall
@@ -99,6 +119,9 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
           -DCMAKE_INSTALL_PREFIX="${{ env.INSTALL_PREFIX }}" `
           -DQt5_DIR="C:/Qt/${{ env.QT_VERSION }}/msvc2019_64/lib/cmake/Qt5"
+          -DPYTHON_EXECUTABLE="${{ env.VCPKG_PYTHON }}" `
+          -DVCPKG_TARGET_TRIPLET=x64-windows `
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
         
         # Build
         cmake --build . --config ${{ env.BUILD_TYPE }}
