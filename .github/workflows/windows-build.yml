@@ -74,22 +74,23 @@ jobs:
         cd build
         # Check if vcpkg directory exists and is valid
         if [ ! -f "vcpkg/bootstrap-vcpkg.sh" ]; then
-          # Remove vcpkg directory if it exists but is invalid
           rm -rf vcpkg
-          # Clone vcpkg
           git clone https://github.com/Microsoft/vcpkg.git
         fi
         
-        # Make bootstrap script executable
+        # Make bootstrap script executable and run it
         chmod +x vcpkg/bootstrap-vcpkg.sh
-        # Run bootstrap
         ./vcpkg/bootstrap-vcpkg.sh
         
-        # Create custom triplet file
+        # Create custom triplet file with proper architecture setting
         mkdir -p vcpkg/triplets
-        echo "set(VCPKG_BUILD_TYPE release)" > vcpkg/triplets/custom-x64-windows.cmake
-        echo "set(VCPKG_LIBRARY_LINKAGE dynamic)" >> vcpkg/triplets/custom-x64-windows.cmake
-        echo "set(VCPKG_CRT_LINKAGE dynamic)" >> vcpkg/triplets/custom-x64-windows.cmake
+        cat > vcpkg/triplets/custom-x64-windows.cmake << EOF
+set(VCPKG_TARGET_ARCHITECTURE x64)
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE dynamic)
+set(VCPKG_BUILD_TYPE release)
+set(VCPKG_CMAKE_SYSTEM_NAME Windows)
+EOF
         
         # Update baseline
         ./vcpkg/vcpkg x-update-baseline --add-initial-baseline
@@ -99,6 +100,22 @@ jobs:
       shell: pwsh
       run: |
         cd build
+        
+        # Create CMakeSettings.json for custom configuration
+        $cmakeSettings = @{
+          configurations = @(
+            @{
+              name = "${{ env.BUILD_TYPE }}"
+              generator = "Visual Studio 17 2022"
+              architecture = @{
+                value = "x64"
+                strategy = "set"
+              }
+            }
+          )
+        } | ConvertTo-Json -Depth 10
+        
+        Set-Content -Path "CMakeSettings.json" -Value $cmakeSettings
         
         # Configure with CMake
         cmake `
@@ -110,12 +127,16 @@ jobs:
           -DPYTHON_EXECUTABLE="${{ env.pythonLocation }}/python.exe" `
           -DVCPKG_TARGET_TRIPLET=custom-x64-windows `
           -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
-          -DVCPKG_HOST_TRIPLET=custom-x64-windows `
-          -DVCPKG_TARGET_ARCHITECTURE=x64 `
+          -DVCPKG_HOST_TRIPLET=x64-windows `
+          -DVCPKG_OVERLAY_TRIPLETS="${{ env.VCPKG_ROOT }}/triplets" `
           ..
         
         if ($LASTEXITCODE -ne 0) {
-            Get-Content CMakeFiles/CMakeError.log
+            if (Test-Path "CMakeFiles/CMakeError.log") {
+                Get-Content CMakeFiles/CMakeError.log
+            } else {
+                Write-Host "CMakeError.log not found. Build failed with exit code $LASTEXITCODE"
+            }
             exit $LASTEXITCODE
         }
         
