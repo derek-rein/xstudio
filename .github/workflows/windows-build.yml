@@ -9,7 +9,6 @@ env:
   PYTHON_VERSION: '3.10'
   VCPKG_ROOT: D:/a/xstudio/xstudio/build/vcpkg
   VCPKG_DEFAULT_BINARY_CACHE: D:/a/xstudio/xstudio/build/vcpkg/bincache
-  # Remove the problematic environment variable and define it in the steps where needed
   VCPKG_FEATURE_FLAGS: binarycaching,manifests
   VCPKG_MAX_CONCURRENCY: 4
 
@@ -29,12 +28,16 @@ jobs:
         New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
         -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
 
+    - name: Create build directory
+      run: |
+        mkdir -p build
+      shell: bash
+
     - name: Setup vcpkg binary cache
       run: |
         mkdir -p "${{ env.VCPKG_DEFAULT_BINARY_CACHE }}"
       shell: bash
 
-    # Set VCPKG_BINARY_SOURCES after the cache directory is created
     - name: Configure vcpkg binary sources
       run: |
         echo "VCPKG_BINARY_SOURCES=clear;default,readwrite;files,${{ env.VCPKG_DEFAULT_BINARY_CACHE }},readwrite" >> $GITHUB_ENV
@@ -68,14 +71,27 @@ jobs:
 
     - name: Setup vcpkg
       run: |
-        mkdir -p build
         cd build
-        git clone https://github.com/Microsoft/vcpkg.git
+        # Check if vcpkg directory exists and is valid
+        if [ ! -f "vcpkg/bootstrap-vcpkg.sh" ]; then
+          # Remove vcpkg directory if it exists but is invalid
+          rm -rf vcpkg
+          # Clone vcpkg
+          git clone https://github.com/Microsoft/vcpkg.git
+        fi
+        
+        # Make bootstrap script executable
+        chmod +x vcpkg/bootstrap-vcpkg.sh
+        # Run bootstrap
         ./vcpkg/bootstrap-vcpkg.sh
+        
         # Create custom triplet file
+        mkdir -p vcpkg/triplets
         echo "set(VCPKG_BUILD_TYPE release)" > vcpkg/triplets/custom-x64-windows.cmake
         echo "set(VCPKG_LIBRARY_LINKAGE dynamic)" >> vcpkg/triplets/custom-x64-windows.cmake
         echo "set(VCPKG_CRT_LINKAGE dynamic)" >> vcpkg/triplets/custom-x64-windows.cmake
+        
+        # Update baseline
         ./vcpkg/vcpkg x-update-baseline --add-initial-baseline
       shell: bash
 
