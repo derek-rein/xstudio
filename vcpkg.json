@@ -18,10 +18,37 @@
         "caf",
         "opencolorio",
         "openimageio",
-        { 
+        {
             "name": "ffmpeg",
-            "features": ["all"]
-
+            "features": [
+            "aom",
+            "avcodec",
+            "avdevice",
+            "avfilter",
+            "avformat",
+            "bzip2",
+            "dav1d",
+            "iconv",
+            "lzma",
+            "mp3lame",
+            "openjpeg",
+            "openmpt",
+            "openssl",
+            "opus",
+            "snappy",
+            "soxr",
+            "speex",
+            "swresample",
+            "swscale",
+            "theora",
+            "vorbis",
+            "vpx",
+            "webp",
+            "xml2",
+            "x264",
+            "x265",
+            "zlib"
+            ]
         }
     ],
     "builtin-baseline": "dafef74af53669ef1cc9015f55e0ce809ead62aa",
